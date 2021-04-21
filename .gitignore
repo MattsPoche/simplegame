@@ -1,0 +1,14 @@
+tags
+TAGS
+*.o
+*.a
+*.d
+*.zip
+*.png
+*.jpg
+*.bmp
+
+build
+bin
+obj
+dep
