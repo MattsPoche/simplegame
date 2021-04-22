@@ -32,7 +32,7 @@
 #define AUDIO_SAMPLE_RATE 48000
 #define AUDIO_CHANNELS 2
 #define STEP (pow(2.0, 1.0 / 12.0)) /* divide the octave */
-#define PI 3.14159265358979323846
+#define PI 3.14159265358979323846f
 
 #define ARRCOUNT(arr) (sizeof(arr) / sizeof(arr[0]))
 #define FOREACH_ARRAY(type, val, arr, body) \

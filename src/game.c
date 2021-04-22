@@ -338,26 +338,16 @@ static Vec2
 projection_map(int width, int height, Vec3 pa)
 {
 	float fov = 90.0f;
-	float fov_rad = 1.0f / tanf(fov * PI / 180.0f * 0.5f);
+	float fov_rad = 1.0f / tanf((fov * PI / 180.0f) * 0.5f);
 	float zn = 0.1; /* "z near" - distance of camera pinhole from draw surface */
 	float zf = 1000.0f; /* "z far" */
-	float ar = (float)width / (float)height; /* aspect ratio */
-#if 0
+	float ar = (float)height / (float)width; /* aspect ratio */
 	Matrix4 proj_m = {
 		.v = {
-			[0] = { ar * fov_rad, 0,       0,               0                     },
-			[1] = { 0,            fov_rad, 0,               0                     },
-			[2] = { 0,            0,       zf / (zf - zn), -(zf * zn) / (zf - zn) },
-			[3] = { 0,            0,       1,               0                     },
-		}
-	};
-#endif
-	Matrix4 proj_m = {
-		.v = {
-			[0] = { ar * fov_rad, 0,       0,                      0                     },
-			[1] = { 0,            fov_rad, 0,                      0                     },
-			[2] = { 0,            0,       zf / (zf - zn),         1                     },
-			[3] = { 0,            0,      -(zf * zn) / (zf - zn),  0                     },
+			[0] = { ar * fov_rad, 0,       0,                      0 },
+			[1] = { 0,            fov_rad, 0,                      0 },
+			[2] = { 0,            0,       zf / (zf - zn),         1 },
+			[3] = { 0,            0,      -(zf * zn) / (zf - zn),  0 },
 		}
 	};
 	Vec4 pa_projected = {
@@ -396,10 +386,8 @@ render_3d_model(uint32_t *draw_buffer, int width, int height, Tri3 *model, size_
 				[2] = projection_map(width, height, triOffset.v[2]),
 			}
 		};
-		if (t % 2 == 0) {
-			if ((++color) == 6)
-				color = 0;
-		}
+		if ((++color) == 6)
+			color = 0;
 		tri_projected.v[0].x += 1.0f; tri_projected.v[0].y += 1.0f;
 		tri_projected.v[1].x += 1.0f; tri_projected.v[1].y += 1.0f;
 		tri_projected.v[2].x += 1.0f; tri_projected.v[2].y += 1.0f;
