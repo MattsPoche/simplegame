@@ -19,6 +19,8 @@ static Key downkeys[] = {
 	{ 0, SDLK_s, "ga_downbutton_down", NULL },
 	{ 0, SDLK_a, "ga_leftbutton_down", NULL },
 	{ 0, SDLK_d, "ga_rightbutton_down", NULL },
+	{ 0, SDLK_f, "ga_floatbutton_down", NULL },
+	{ 0, SDLK_g, "ga_sinkbutton_down", NULL },
 	{ 0, SDLK_v, "ga_inc_freq", NULL },
 	{ 0, SDLK_c, "ga_dec_freq", NULL },
 };
@@ -28,6 +30,8 @@ static Key upkeys[] = {
 	{ 0, SDLK_s, "ga_downbutton_up", NULL },
 	{ 0, SDLK_a, "ga_leftbutton_up", NULL },
 	{ 0, SDLK_d, "ga_rightbutton_up", NULL },
+	{ 0, SDLK_f, "ga_floatbutton_up", NULL },
+	{ 0, SDLK_g, "ga_sinkbutton_up", NULL },
 };
 
 static void (*handler[SDLEVENTRANGE]) (SDL_Event *) = {

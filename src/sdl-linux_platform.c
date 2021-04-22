@@ -31,10 +31,9 @@ static float plat_get_s_elapsed(uint64_t start, uint64_t end);
 static int plat_msleep(int64_t msec);
 
 static uint8_t quit = 0;
-static uint8_t pause_audio = 1;
+static uint8_t pause_audio = 0;
 static SDL_AudioDeviceID adev;
 static const char game_lib_name[] = "bin/game.so";
-static int game_lib_changed = 0;
 static ga_update_and_render game_update_and_render = NULL;
 static ga_update_sound game_update_sound = NULL;
 #define SYMCAST(h) (*(void **)(&(h)))
@@ -155,7 +154,6 @@ plat_msleep(int64_t msec)
 static void *
 link_to_game(void)
 {
-	printf("hello, from link_to_game\n");
 	void *handle = dlopen(game_lib_name, RTLD_NOW|RTLD_LOCAL);
 	if (handle == NULL) {
 		fprintf(ERR_LOG, "[ERROR] problem dynamically loading game: %s\n",
@@ -197,7 +195,6 @@ error:
 static void
 unlink_to_game(void *handle)
 {
-	printf("hello, from unlink_to_game\n");
 	game_update_and_render = NULL;
 	game_update_sound = NULL;
 	FOREACH_ARRAY(Key *, key, downkeys, {
@@ -223,23 +220,26 @@ main(void)
 	if (game_lib_handle == NULL) {
 		exit(1);
 	}
-	start_watching("bin", "game.so");
+
+	int game_lib_changed = 0;
+	pthread_mutex_t *m = start_watching("bin", "game.so", &game_lib_changed);
 
 	float refreash_rate = 60.0f;
 	float frame_tt = 1.0f / refreash_rate;
 	uint64_t frame_count = 0;
 	uint64_t last_counter = plat_get_wall_clock();
 	SDL_Event event;
-	SDL_PauseAudioDevice(adev, 0);
 	while (!quit) {
+		pthread_mutex_lock(m);
 		if (game_lib_changed) {
 			SDL_PauseAudioDevice(adev, 1);
 			pause_audio = 0;
 			unlink_to_game(game_lib_handle);
-			link_to_game();
+			game_lib_handle = link_to_game();
 			plat_pause_audio();
 			game_lib_changed = 0;
 		}
+		pthread_mutex_unlock(m);
 		while (SDL_PollEvent(&event)) {
 			if (event.type < SDL_USEREVENT) {
 				if (event.type < SDLEVENTRANGE && handler[event.type]) {
@@ -249,13 +249,11 @@ main(void)
 		}
 		void *pixels; 
 		int32_t pitch;
-		if (game_update_and_render != NULL) {
-			SDL_LockTexture(g.draw_buffer, NULL, &pixels, &pitch);
-			game_update_and_render(pixels, g.w, g.h);
-			SDL_UnlockTexture(g.draw_buffer);
-			SDL_RenderCopy(g.renderer, g.draw_buffer, NULL, NULL);
-			SDL_RenderPresent(g.renderer);
-		}
+		SDL_LockTexture(g.draw_buffer, NULL, &pixels, &pitch);
+		game_update_and_render(pixels, g.w, g.h);
+		SDL_UnlockTexture(g.draw_buffer);
+		SDL_RenderCopy(g.renderer, g.draw_buffer, NULL, NULL);
+		SDL_RenderPresent(g.renderer);
 
 		uint64_t wall_clock = plat_get_wall_clock();
 		float elapsed_time = plat_get_s_elapsed(last_counter, wall_clock);

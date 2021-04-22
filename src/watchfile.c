@@ -1,6 +1,8 @@
 typedef struct {
 	char file_name[69];
 	int fd_in;
+	int *ismodified;
+	pthread_mutex_t *m;
 } Watch_Thread_Args;
 
 static void *
@@ -23,9 +25,9 @@ watch_routine(void *arg)
 			event = (struct inotify_event *)ptr;
 			if (event->len > 0 && event->mask & IN_CLOSE_WRITE) {
 				if (strncmp(event->name, tdata->file_name, strlen(tdata->file_name) + 1) == 0) {
-					/* [TODO]: signal to main thread when file changes using proper concurrency 
-					 * */
-					game_lib_changed = 1;
+					pthread_mutex_lock(tdata->m);
+					*tdata->ismodified = 1;
+					pthread_mutex_unlock(tdata->m);
 				}
 			}
 		}
@@ -33,8 +35,8 @@ watch_routine(void *arg)
 	return NULL;
 }
 
-static pthread_t
-start_watching(const char *dir_name, const char *file_name)
+static pthread_mutex_t *
+start_watching(const char *dir_name, const char *file_name, int *ismodified)
 {
 	assert((strlen(file_name) + 1) < 69);
 	Watch_Thread_Args *data = malloc(sizeof(Watch_Thread_Args));
@@ -54,10 +56,16 @@ start_watching(const char *dir_name, const char *file_name)
 
 	memcpy(data->file_name, file_name, strlen(file_name) + 1);
 	data->fd_in = fd_in;
+	pthread_mutex_t *m = malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(m, NULL);
+	data->m = m;
+	data->ismodified = ismodified;
 	pthread_t watch_thread;
+	/*
 	pthread_attr_t pta;
 	pthread_attr_init(&pta);
 	pthread_attr_setdetachstate(&pta, PTHREAD_CREATE_DETACHED);
-	pthread_create(&watch_thread, &pta, watch_routine, data);
-	return watch_thread;
+	*/
+	pthread_create(&watch_thread, NULL, watch_routine, data);
+	return m;
 }
