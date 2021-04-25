@@ -8,6 +8,7 @@
 #include "const.h"
 
 #define UNUSED_FUNC
+#define UNUSED_GLOBAL
 
 typedef struct {
 	float x;
@@ -256,20 +257,50 @@ swapf(float *a, float *b)
  * y(x) = y0 + (x - x0) * ((y1 - y0) / (x1 - x0))
  * */
 static inline Vec2
-linear_interp_y(int y, Vec2 p0, Vec2 p1) /* for a given y position, return the point on the line */
+linear_interp_y(float y, Vec2 p0, Vec2 p1) /* for a given y position, return the point on the line */
 {
-	float slope = (p1.x - p0.x) / (p1.y - p0.y);
-	float x = p0.x + (((float)y - p0.y) * (slope));
-	return (Vec2){ .x = x, .y = (float)y };
+	float slope = 0.0f;
+	if (p0.y != p1.y) {
+		slope = (p1.x - p0.x) / (p1.y - p0.y);
+	}
+	float x = p0.x + ((y - p0.y) * (slope));
+	return (Vec2){ .x = x, .y = y };
 }
 
 static inline Vec2
-linear_interp_x(int x, Vec2 p0, Vec2 p1) /* for a given x position, return the point on the line */
+linear_interp_x(float x, Vec2 p0, Vec2 p1) /* for a given x position, return the point on the line */
 {
-	float slope = (p1.y - p0.y) / (p1.x - p0.x);
-	float y = p0.y + (((float)x - p0.x) * (slope));
-	return (Vec2){ .x = (float)x, .y = y };
+	float slope = 1.0f;
+	if (p0.x != p1.x) {
+		slope = (p1.y - p0.y) / (p1.x - p0.x);
+	}
+	float y = p0.y + ((x - p0.x) * (slope));
+	return (Vec2){ .x = x, .y = y };
 }
+
+#if 0
+static void
+draw_line(uint32_t *draw_buffer, const int width, const int height, Vec2 p0, Vec2 p1)
+{
+	if ((int)p0.y == (int)p1.y) {
+		if (p0.x > p1.x) swapv2(&p0, &p1);
+		for (float x = p0.x; x < p1.x; x += 1.0f) {
+			Vec2 pd = linear_interp_x(x, p0, p1);
+			if ((int)pd.y > -1 && (int)pd.y < height && (int)pd.x > -1 && (int)pd.x < width) {
+				draw_buffer[((int)pd.y * width) + (int)pd.x] = 0xFFFFFFFF; /* white */
+			}
+		}
+	} else {
+		if (p0.y > p1.y) swapv2(&p0, &p1);
+		for (float y = p0.y; y < p1.y; y += 1.0f) {
+			Vec2 pd = linear_interp_y(y, p0, p1);
+			if ((int)pd.y > -1 && (int)pd.y < height && (int)pd.x > -1 && (int)pd.x < width) {
+				draw_buffer[((int)pd.y * width) + (int)pd.x] = 0xFFFFFFFF; /* white */
+			}
+		}
+	}
+}
+#endif
 
 static uint32_t color = 0;
 static uint32_t colors[6] = {
@@ -280,6 +311,46 @@ static uint32_t colors[6] = {
 	[4] = 0xFF << RSHIFT | 0xFF << BSHIFT,
 	[5] = 0xFF << RSHIFT | 0xFF << GSHIFT,
 };
+
+static void 
+wireframe_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
+{
+	/* [TODO]: Bug (wireframe_tri2, raster_tri2) -> invisible lines with zero slope
+	 * [NOTE]: when the slope of a line aproaches zero, the x distance between the lines
+	 * becomes greater until no line is drawn when slope = 0
+	 */
+
+	/* find highest point */
+	Vec2 p0 = tri.v[0];
+	Vec2 p1 = tri.v[1];
+	Vec2 p2 = tri.v[2];
+	if (p1.y < p0.y) { swapv2(&p0, &p1); }
+	if (p2.y < p0.y) { swapv2(&p2, &p0); }
+	if (p2.y < p1.y) { swapv2(&p2, &p1); }
+
+	/* Draw Edges of face */
+	float y;
+	for (y = p0.y; y < p1.y; ++y) {
+		Vec2 pa = linear_interp_y(y, p0, p1);
+		Vec2 pb = linear_interp_y(y, p0, p2);
+		if ((int)pa.y > -1 && (int)pa.y < height && (int)pa.x > -1 && (int)pa.x < width) {
+			draw_buffer[((int)pa.y * width) + (int)pa.x] = 0xFFFFFFFF; /* white */
+		}
+		if ((int)pb.y > -1 && (int)pb.y < height && (int)pb.x > -1 && (int)pb.x < width) {
+			draw_buffer[((int)pb.y * width) + (int)pb.x] = 0xFFFFFFFF; /* white */
+		}
+	}
+	for (; y < p2.y; ++y) {
+		Vec2 pa = linear_interp_y(y, p1, p2);
+		Vec2 pb = linear_interp_y(y, p0, p2);
+		if ((int)pa.y > -1 && (int)pa.y < height && (int)pa.x > -1 && (int)pa.x < width) {
+			draw_buffer[((int)pa.y * width) + (int)pa.x] = 0xFFFFFFFF; /* white */
+		}
+		if ((int)pb.y > -1 && (int)pb.y < height && (int)pb.x > -1 && (int)pb.x < width) {
+			draw_buffer[((int)pb.y * width) + (int)pb.x] = 0xFFFFFFFF; /* white */
+		}
+	}
+}
 
 static void 
 raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
@@ -293,23 +364,23 @@ raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 	if (p2.y < p1.y) { swapv2(&p2, &p1); }
 
 	/* Draw Face */
-	int y;
-	for (y = (int)p0.y; y < (int)p1.y; ++y) {
+	float y;
+	for (y = p0.y; y < p1.y; ++y) {
 		Vec2 pa = linear_interp_y(y, p0, p1);
 		Vec2 pb = linear_interp_y(y, p0, p2);
 		if (pa.x > pb.x) { swapv2(&pa, &pb); }
-		for (int x = (int)pa.x; x < (int)pb.x; ++x) {
+		for (float x = pa.x; x < pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
 			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
 				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
 			}
 		}
 	}
-	for (; y < (int)p2.y; ++y) {
+	for (; y < p2.y; ++y) {
 		Vec2 pa = linear_interp_y(y, p1, p2);
 		Vec2 pb = linear_interp_y(y, p0, p2);
 		if (pa.x > pb.x) { swapv2(&pa, &pb); }
-		for (int x = (int)pa.x; x < (int)pb.x; ++x) {
+		for (float x = pa.x; x < pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
 			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
 				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
@@ -426,6 +497,7 @@ render_3d_model(uint32_t *draw_buffer, int width, int height, float elapsed_time
 
 			color = t / 2;
 
+			wireframe_tri2(draw_buffer, width, height, tri_projected);
 			raster_tri2(draw_buffer, width, height, tri_projected);
 		}
 	}
