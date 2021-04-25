@@ -247,14 +247,6 @@ main(void)
 				} /* else { events not handled by handler } */
 			} /* else { handle user registered events } */
 		}
-		void *pixels; 
-		int32_t pitch;
-		SDL_LockTexture(g.draw_buffer, NULL, &pixels, &pitch);
-		game_update_and_render(pixels, g.w, g.h);
-		SDL_UnlockTexture(g.draw_buffer);
-		SDL_RenderCopy(g.renderer, g.draw_buffer, NULL, NULL);
-		SDL_RenderPresent(g.renderer);
-
 		uint64_t wall_clock = plat_get_wall_clock();
 		float elapsed_time = plat_get_s_elapsed(last_counter, wall_clock);
 		if (plat_msleep((int64_t)((frame_tt - elapsed_time) * 1000)) < 0) {
@@ -266,6 +258,15 @@ main(void)
 		printf("fps: %f\n", (float)frame_count / SDL_GetTicks() * 1000);
 #endif
 		last_counter = plat_get_wall_clock();
+
+		void *pixels; 
+		int32_t pitch;
+		SDL_LockTexture(g.draw_buffer, NULL, &pixels, &pitch);
+		game_update_and_render(pixels, g.w, g.h, elapsed_time);
+		SDL_UnlockTexture(g.draw_buffer);
+		SDL_RenderCopy(g.renderer, g.draw_buffer, NULL, NULL);
+		SDL_RenderPresent(g.renderer);
+
 	}
 	unlink_to_game(game_lib_handle);
 	SDL_PauseAudioDevice(adev, 1);

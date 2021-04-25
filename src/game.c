@@ -150,62 +150,36 @@ clear_screen(uint32_t *draw_buffer, int width, int height)
 	}
 }
 
-#if 0
-static Tri2 left_tri = {
-	.v = {
-		[0] = { 500.0f, 200.0f },
-		[1] = { 300.0f, 500.0f },
-		[2] = { 600.0f, 800.0f },
-	},
-};
-static Tri2 right_tri = {
-	.v = {
-		[0] = { 800.0f, 200.0f },
-		[1] = { 700.0f, 800.0f },
-		[2] = { 1000.0f, 500.0f },
-	},
-};
-static Tri2 flat_bottom_tri = {
-	.v = {
-		[0] = { 1500.0f, 200.0f },
-		[1] = { 1500.0f, 500.0f },
-		[2] = { 1700.0f, 500.0f },
-	},
-};
-static Tri2 flat_top_tri = {
-	.v = {
-		[0] = { 1300.0f, 200.0f },
-		[1] = { 1300.0f, 500.0f },
-		[2] = { 1400.0f, 200.0f },
-	},
-};
-#endif
-
 static Vec3 cube_offset = {
 	.x = 0.0f,
 	.y = 0.0f,
-	.z = 500.0f,
+	.z = 400.0f,
 };
+static float cube_scaler = 50;
 static Tri3 cube[12] = {
-	/* face 1; front */
-	[0]  = { .v = { { 0.0f, 0.0f, 0.0f }, { 50.0f, 0.0f, 0.0f }, { 0.0f, 50.0f, 0.0f } } },
-	[1]  = { .v = { { 50.0f, 0.0f, 0.0f }, { 50.0f, 50.0f, 0.0f }, { 0.0f, 50.0f, 0.0f } } },
-	/* face 2; back */
-	[2]  = { .v = { { 0.0f, 0.0f, 50.0f }, { 50.0f, 0.0f, 50.0f }, { 0.0f, 50.0f, 50.0f } } },
-	[3]  = { .v = { { 50.0f, 0.0f, 50.0f }, { 50.0f, 50.0f, 50.0f }, { 0.0f, 50.0f, 50.0f } } },
-	/* face 3; right */
-	[4]  = { .v = { { 50.0f, 0.0f, 0.0f }, { 50.0f, 0.0f, 50.0f }, { 50.0f, 50.0f, 0.0f } } },
-	[5]  = { .v = { { 50.0f, 0.0f, 50.0f }, { 50.0f, 50.0f, 50.0f }, { 50.0f, 50.0f, 0.0f } } },
-	/* face 4; left */
-	[6]  = { .v = { { 0.0f, 0.0f, 50.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 50.0f, 50.0f } } },
-	[7]  = { .v = { { 0.0f, 0.0f, 0.0f }, { 0.0f, 50.0f, 0.0f }, { 0.0f, 50.0f, 50.0f } } },
-	/* face 5; up */
-	[8]  = { .v = { { 0.0f, 0.0f, 50.0f }, { 50.0f, 0.0f, 50.0f }, { 0.0f, 0.0f, 0.0f } } },
-	[9]  = { .v = { { 50.0f, 0.0f, 50.0f }, { 50.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } } },
-	/* face 6; down */
-	[10] = { .v = { { 0.0f, 50.0f, 50.0f }, { 50.0f, 50.0f, 50.0f }, { 0.0f, 50.0f, 0.0f } } },
-	[11] = { .v = { { 50.0f, 50.0f, 50.0f }, { 50.0f, 50.0f, 0.0f }, { 0.0f, 50.0f, 0.0f } } },
+	[0]  = { .v = { {-1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, -1.0f} } },
+	[1]  = { .v = { {1.0f, 1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, 1.0f} } },
+	[2]  = { .v = { {-1.0f, 1.0f, 1.0f}, {-1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, 1.0f} } },
+	[3]  = { .v = { {1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, -1.0f} } },
+	[4]  = { .v = { {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, -1.0f} } },
+	[5]  = { .v = { {-1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f} } },
+	[6]  = { .v = { {-1.0f, 1.0f, -1.0f}, {-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f} } },
+	[7]  = { .v = { {1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f} } },
+	[8]  = { .v = { {-1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f} } },
+	[9]  = { .v = { {1.0f, -1.0f, -1.0f}, {1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f} } },
+	[10] = { .v = { {1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, -1.0f, 1.0f} } },
+	[11] = { .v = { {-1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f} } },
 };
+
+static inline Vec3
+scalev3(float a, Vec3 v)
+{
+	return (Vec3) {
+		.x = v.x * a,
+		.y = v.y * a,
+		.z = v.z * a,
+	};
+}
 
 static inline Vec3
 addv3(Vec3 a, Vec3 b)
@@ -229,17 +203,6 @@ subv3(Vec3 a, Vec3 b)
 	return r;
 }
 
-static inline Vec3
-mulm3_v3(Matrix3 m, Vec3 v)
-{
-	Vec3 r = {
-		.x = (m.v[0].x * v.x) + (m.v[1].x * v.x) + (m.v[2].x * v.x),
-		.y = (m.v[0].y * v.y) + (m.v[1].y * v.y) + (m.v[2].y * v.y),
-		.z = (m.v[0].z * v.z) + (m.v[1].z * v.z) + (m.v[2].z * v.z),
-	};
-	return r;
-}
-
 static inline Vec4
 mulm4_v4(Matrix4 m, Vec4 v)
 {
@@ -252,6 +215,27 @@ mulm4_v4(Matrix4 m, Vec4 v)
 	return r;
 }
 
+static inline Vec3
+mulm4_v3(Matrix4 m, Vec3 v)
+{
+	Vec4 r = {
+		.x = v.x,
+		.y = v.y,
+		.z = v.z,
+		.w = 1,
+	};
+	r = mulm4_v4(m, r);
+	if (r.w != 0) {
+		r.x /= r.w;
+		r.y /= r.w;
+		r.z /= r.w;
+	}
+	return (Vec3) {
+		.x = r.x,
+		.y = r.y,
+		.z = r.z,
+	};
+}
 static inline void
 swapv2(Vec2 *a, Vec2 *b)
 {
@@ -272,7 +256,7 @@ swapf(float *a, float *b)
  * y(x) = y0 + (x - x0) * ((y1 - y0) / (x1 - x0))
  * */
 static inline Vec2
-linear_interp_y(int y, Vec2 p0, Vec2 p1)
+linear_interp_y(int y, Vec2 p0, Vec2 p1) /* for a given y position, return the point on the line */
 {
 	float slope = (p1.x - p0.x) / (p1.y - p0.y);
 	float x = p0.x + (((float)y - p0.y) * (slope));
@@ -280,7 +264,7 @@ linear_interp_y(int y, Vec2 p0, Vec2 p1)
 }
 
 static inline Vec2
-linear_interp_x(int x, Vec2 p0, Vec2 p1)
+linear_interp_x(int x, Vec2 p0, Vec2 p1) /* for a given x position, return the point on the line */
 {
 	float slope = (p1.y - p0.y) / (p1.x - p0.x);
 	float y = p0.y + (((float)x - p0.x) * (slope));
@@ -314,9 +298,9 @@ raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 		Vec2 pa = linear_interp_y(y, p0, p1);
 		Vec2 pb = linear_interp_y(y, p0, p2);
 		if (pa.x > pb.x) { swapv2(&pa, &pb); }
-		for (int x = pa.x; x < pb.x; ++x) {
+		for (int x = (int)pa.x; x < (int)pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
-			if (pc.y > -1 && pc.y < height && pc.x > -1 && pc.x < width) {
+			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
 				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
 			}
 		}
@@ -325,9 +309,9 @@ raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 		Vec2 pa = linear_interp_y(y, p1, p2);
 		Vec2 pb = linear_interp_y(y, p0, p2);
 		if (pa.x > pb.x) { swapv2(&pa, &pb); }
-		for (int x = pa.x; x < pb.x; ++x) {
+		for (int x = (int)pa.x; x < (int)pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
-			if (pc.y > -1 && pc.y < height && pc.x > -1 && pc.x < width) {
+			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
 				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
 			}
 		}
@@ -350,56 +334,105 @@ projection_map(int width, int height, Vec3 pa)
 			[3] = { 0,            0,      -(zf * zn) / (zf - zn),  0 },
 		}
 	};
-	Vec4 pa_projected = {
-		.x = pa.x,
-		.y = pa.y,
-		.z = pa.z,
-		.w = 1.0f,
-	};
-	pa_projected = mulm4_v4(proj_m, pa_projected);
-	if (pa_projected.w != 0) {
-		pa.x = pa_projected.x / pa_projected.w;
-		pa.y = pa_projected.y / pa_projected.w;
-		pa.z = pa_projected.z / pa_projected.w;
-	}
+	Vec3 pa_projected = mulm4_v3(proj_m, pa);
 	return (Vec2) { 
-		.x = pa.x, 
-		.y = pa.y,
+		.x = pa_projected.x, 
+		.y = pa_projected.y,
 	};
 }
 
 static void
-render_3d_model(uint32_t *draw_buffer, int width, int height, Tri3 *model, size_t tri_count)
+render_3d_model(uint32_t *draw_buffer, int width, int height, float elapsed_time, Tri3 *model, size_t tri_count)
 {
+	static float theta = 0.0f;
+	static const Vec3 camera = {0};
+	theta += elapsed_time;
+	Matrix4 rotz = {
+		.v = {
+			[0] = {  cosf(theta), sinf(theta), 0, 0},
+			[1] = { -sinf(theta), cosf(theta), 0, 0},
+			[2] = {  0,           0,           1, 0},
+			[3] = {  0,           0,           0, 1},
+		}
+	};
+	Matrix4 rotx = {
+		.v = {
+			[0] = { 1,  0,                  0,                  0 },
+			[1] = { 0,  cosf(theta * 0.5f), sinf(theta * 0.5f), 0 },
+			[2] = { 0, -sinf(theta * 0.5f), cosf(theta * 0.5f), 0 },
+			[3] = { 0,  0,                  0,                  1 },
+		}
+	};
+
 	for (size_t t = 0; t < tri_count; ++t) {
-		Tri3 triOffset = {
+		Tri3 tri_scaled = {
 			.v = {
-				[0] = addv3(model[t].v[0], cube_offset),
-				[1] = addv3(model[t].v[1], cube_offset),
-				[2] = addv3(model[t].v[2], cube_offset),
+				[0] = scalev3(cube_scaler, model[t].v[0]),
+				[1] = scalev3(cube_scaler, model[t].v[1]),
+				[2] = scalev3(cube_scaler, model[t].v[2]),
 			}
 		};
-		Tri2 tri_projected = {
+		Tri3 tri_rotatedz = {
 			.v = {
-				[0] = projection_map(width, height, triOffset.v[0]),
-				[1] = projection_map(width, height, triOffset.v[1]),
-				[2] = projection_map(width, height, triOffset.v[2]),
+				[0] = mulm4_v3(rotz, tri_scaled.v[0]),
+				[1] = mulm4_v3(rotz, tri_scaled.v[1]),
+				[2] = mulm4_v3(rotz, tri_scaled.v[2]),
 			}
 		};
-		if ((++color) == 6)
-			color = 0;
-		tri_projected.v[0].x += 1.0f; tri_projected.v[0].y += 1.0f;
-		tri_projected.v[1].x += 1.0f; tri_projected.v[1].y += 1.0f;
-		tri_projected.v[2].x += 1.0f; tri_projected.v[2].y += 1.0f;
-		tri_projected.v[0].x *= 0.5f * (float)width; tri_projected.v[0].y *= 0.5f * (float)height;
-		tri_projected.v[1].x *= 0.5f * (float)width; tri_projected.v[1].y *= 0.5f * (float)height;
-		tri_projected.v[2].x *= 0.5f * (float)width; tri_projected.v[2].y *= 0.5f * (float)height;
-		raster_tri2(draw_buffer, width, height, tri_projected);
+		Tri3 tri_rotatedx = {
+			.v = {
+				[0] = mulm4_v3(rotx, tri_rotatedz.v[0]),
+				[1] = mulm4_v3(rotx, tri_rotatedz.v[1]),
+				[2] = mulm4_v3(rotx, tri_rotatedz.v[2]),
+			}
+		};
+		Tri3 tri_offset = {
+			.v = {
+				[0] = addv3(tri_rotatedx.v[0], cube_offset),
+				[1] = addv3(tri_rotatedx.v[1], cube_offset),
+				[2] = addv3(tri_rotatedx.v[2], cube_offset),
+			}
+		};
+
+		Vec3 normal, edge1, edge2;
+		edge1 = subv3(tri_offset.v[1], tri_offset.v[0]);
+		edge2 = subv3(tri_offset.v[2], tri_offset.v[0]);
+		/* cross product */
+		normal.x = edge1.y * edge2.z - edge1.z * edge2.y;
+		normal.y = edge1.z * edge2.x - edge1.x * edge2.z;
+		normal.z = edge1.x * edge2.y - edge1.y * edge2.x;
+		float l = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+		normal.x /= l;
+		normal.y /= l;
+		normal.z /= l;
+
+		if (normal.x * (tri_offset.v[0].x - camera.x) +
+			normal.y * (tri_offset.v[0].y - camera.y) +
+			normal.z * (tri_offset.v[0].z - camera.z) < 0.0f) {
+
+			Tri2 tri_projected = {
+				.v = {
+					[0] = projection_map(width, height, tri_offset.v[0]),
+					[1] = projection_map(width, height, tri_offset.v[1]),
+					[2] = projection_map(width, height, tri_offset.v[2]),
+				}
+			};
+			tri_projected.v[0].x += 1.0f; tri_projected.v[0].y += 1.0f;
+			tri_projected.v[1].x += 1.0f; tri_projected.v[1].y += 1.0f;
+			tri_projected.v[2].x += 1.0f; tri_projected.v[2].y += 1.0f;
+			tri_projected.v[0].x *= 0.5f * (float)width; tri_projected.v[0].y *= 0.5f * (float)height;
+			tri_projected.v[1].x *= 0.5f * (float)width; tri_projected.v[1].y *= 0.5f * (float)height;
+			tri_projected.v[2].x *= 0.5f * (float)width; tri_projected.v[2].y *= 0.5f * (float)height;
+
+			color = t / 2;
+
+			raster_tri2(draw_buffer, width, height, tri_projected);
+		}
 	}
 }
 
 void
-ga_update_and_render(uint32_t *draw_buffer, int width, int height)
+ga_update_and_render(uint32_t *draw_buffer, int width, int height, float elapsed_time)
 {
 	if (upbutton_state) {
 		cube_offset.z -= 5.0f;
@@ -420,7 +453,7 @@ ga_update_and_render(uint32_t *draw_buffer, int width, int height)
 		cube_offset.y += 1.0f;
 	}
 	clear_screen(draw_buffer, width, height);
-	render_3d_model(draw_buffer, width, height, cube, 12);
+	render_3d_model(draw_buffer, width, height, elapsed_time, cube, 12);
 }
 
 void

@@ -1,7 +1,7 @@
 #ifndef GAME_H_
 #define GAME_H_
 
-void ga_update_and_render(uint32_t *draw_buffer, int width, int height);
+void ga_update_and_render(uint32_t *draw_buffer, int width, int height, float elapsed_time);
 void ga_update_sound(void *audio_buffer, int frames);
 void ga_upbutton_down(void);
 void ga_upbutton_up(void);
