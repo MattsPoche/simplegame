@@ -3,6 +3,8 @@
 
 #define ERR_LOG stderr
 #define UNUSED(x) ((void)x)
+#define UNUSED_FUNC
+#define UNUSED_GLOBAL
 
 #define SCREEN_WIDTH (1280 * 1.4)
 #define SCREEN_HEIGHT (720 * 1.4)

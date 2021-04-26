@@ -14,6 +14,7 @@
 
 #include "const.h"
 #include "game_api.h"
+#include "mem.h"
 
 typedef struct {
 	SDL_Window *window;
@@ -36,10 +37,14 @@ static SDL_AudioDeviceID adev;
 static const char game_lib_name[] = "bin/game.so";
 static ga_update_and_render game_update_and_render = NULL;
 static ga_update_sound game_update_sound = NULL;
-#define SYMCAST(h) (*(void **)(&(h)))
+static ga_register_malloc game_register_malloc = NULL;
+static Mem_Pool *game_memory;
 
+#include "mem.c"
 #include "sdl_event_handler.c"
 #include "watchfile.c"
+
+#define SYMCAST(h) (*(void **)(&(h)))
 
 static Graphics
 init_graphics(void)
@@ -168,6 +173,10 @@ link_to_game(void)
 	if (game_update_sound == NULL) {
 		goto error;
 	}
+	SYMCAST(game_register_malloc) = dlsym(handle, "ga_register_malloc");
+	if (game_register_malloc == NULL) {
+		goto error;
+	}
 	FOREACH_ARRAY(Key *, key, downkeys, {
 		if (key->link_symbol) {
 			SYMCAST(key->game_action) = dlsym(handle, key->link_symbol);
@@ -197,6 +206,7 @@ unlink_to_game(void *handle)
 {
 	game_update_and_render = NULL;
 	game_update_sound = NULL;
+	game_register_malloc = NULL;
 	FOREACH_ARRAY(Key *, key, downkeys, {
 		if (key->link_symbol) {
 			key->game_action = NULL;
@@ -211,18 +221,34 @@ unlink_to_game(void *handle)
 	dlclose(handle);
 }
 
+void *
+game_malloc_cb(size_t size)
+{
+	return mem_pool_alloc(game_memory, size);
+}
+
 int
 main(void)
 {
+	/* init graphics */
 	Graphics g = init_graphics();
+	/* init audio */
 	adev = init_audio();
+	/* init game lib */
 	void *game_lib_handle = link_to_game();
 	if (game_lib_handle == NULL) {
 		exit(1);
 	}
-
 	int game_lib_changed = 0;
 	pthread_mutex_t *m = start_watching("bin", "game.so", &game_lib_changed);
+	/* create game memory */
+	game_memory = mem_pool_new(1024 * 20);
+	game_register_malloc(game_malloc_cb);
+
+	if (game_memory == NULL) {
+		/* [TODO]: Proper error handleing */
+		exit(1);
+	}
 
 	float refreash_rate = 60.0f;
 	float frame_tt = 1.0f / refreash_rate;
@@ -269,6 +295,7 @@ main(void)
 
 	}
 	unlink_to_game(game_lib_handle);
+	mem_pool_free(game_memory);
 	SDL_PauseAudioDevice(adev, 1);
 	SDL_CloseAudioDevice(adev);
 	return 0;

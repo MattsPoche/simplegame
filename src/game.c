@@ -7,9 +7,6 @@
 #include "game.h"
 #include "const.h"
 
-#define UNUSED_FUNC
-#define UNUSED_GLOBAL
-
 typedef struct {
 	float x;
 	float y;
@@ -134,6 +131,12 @@ void
 ga_dec_freq(void)
 {
 	frequency /= STEP;
+}
+
+void
+ga_register_malloc(malloc_cb f)
+{
+	ga_malloc = f;
 }
 
 UNUSED_FUNC int
