@@ -246,7 +246,7 @@ main(void)
 	game_register_malloc(game_malloc_cb);
 
 	if (game_memory == NULL) {
-		/* [TODO]: Proper error handleing */
+		/* [TODO]: Proper error handling */
 		exit(1);
 	}
 
