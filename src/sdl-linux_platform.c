@@ -1,20 +1,28 @@
-#define _POSIX_C_SOURCE 200809L /* NOTE: Required for nanosleep (glibc) */
+#define GA_PLATFORM_LAYER
+#define _POSIX_C_SOURCE 200809L /* [NOTE]: Required for nanosleep (glibc) 
+ 								 * Maybe just use sdl_wait instead?
+ 								 * */
+#define _DEFAULT_SOURCE
+
 #include <assert.h>
+#include <dirent.h>
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <sys/stat.h>
+#include <ctype.h>
 #include <errno.h>
-#include <time.h>
-#include <pthread.h>
 #include <poll.h>
-#include <unistd.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 #include <SDL2/SDL.h>
 
 #include "const.h"
 #include "game_api.h"
-#include "mem.h"
+#define STR_VIEW_IMPLEMENTATION
+#include "strview.h"
 
 typedef struct {
 	SDL_Window *window;
@@ -35,10 +43,6 @@ static uint8_t quit = 0;
 static uint8_t pause_audio = 0;
 static SDL_AudioDeviceID adev;
 static const char game_lib_name[] = "bin/game.so";
-static ga_update_and_render game_update_and_render = NULL;
-static ga_update_sound game_update_sound = NULL;
-static ga_register_malloc game_register_malloc = NULL;
-static Mem_Pool *game_memory;
 
 #include "mem.c"
 #include "sdl_event_handler.c"
@@ -159,7 +163,7 @@ plat_msleep(int64_t msec)
 static void *
 link_to_game(void)
 {
-	void *handle = dlopen(game_lib_name, RTLD_NOW|RTLD_LOCAL);
+	void *handle = dlopen(game_lib_name, RTLD_NOW|RTLD_LOCAL); /* [TODO]: use flag to keep lib data loaded */
 	if (handle == NULL) {
 		fprintf(ERR_LOG, "[ERROR] problem dynamically loading game: %s\n",
 				dlerror());
@@ -173,8 +177,8 @@ link_to_game(void)
 	if (game_update_sound == NULL) {
 		goto error;
 	}
-	SYMCAST(game_register_malloc) = dlsym(handle, "ga_register_malloc");
-	if (game_register_malloc == NULL) {
+	SYMCAST(game_init) = dlsym(handle, "ga_init");
+	if (game_init == NULL) {
 		goto error;
 	}
 	FOREACH_ARRAY(Key *, key, downkeys, {
@@ -206,7 +210,7 @@ unlink_to_game(void *handle)
 {
 	game_update_and_render = NULL;
 	game_update_sound = NULL;
-	game_register_malloc = NULL;
+	game_init = NULL;
 	FOREACH_ARRAY(Key *, key, downkeys, {
 		if (key->link_symbol) {
 			key->game_action = NULL;
@@ -221,11 +225,206 @@ unlink_to_game(void *handle)
 	dlclose(handle);
 }
 
-void *
-game_malloc_cb(size_t size)
+Model_Data *
+deserialize_wavefront_obj_str(Game_Memory *game_memory, Str_View file)
 {
-	return mem_pool_alloc(game_memory, size);
+	Model_Data *model_data = NULL;
+	Vec3 *temp_verts = NULL;
+	Str_View fcur = file;
+	size_t face_count = 0;
+	size_t vert_count = 0;
+	/* count the number of surfaces */
+	while (fcur.len > 0) {
+		if (*fcur.str == 'f') {
+			face_count++;
+		}
+		if (*fcur.str == 'v') {
+			vert_count++;
+		}
+		fcur = sv_skip_to_next_ln(fcur);
+	}
+	model_data = mem_pool_push(game_memory->block,
+			sizeof(Model_Data) + (face_count * sizeof(Tri3)));
+	assert(model_data != NULL);
+	model_data->faces = face_count;
+	temp_verts = mem_pool_push(game_memory->temp, vert_count * sizeof(Vec3));
+	fcur = file;
+	size_t vadd_index = 0;
+	size_t face_index = 0;
+	while (fcur.len > 0 && face_index < face_count) {
+		if (*fcur.str == 'o') {
+			fcur.str++; fcur.len--;
+			fcur = sv_skip_whitespace(fcur);
+			Str_Str res = sv_word(fcur);
+			Str_View word = res.sv;
+			fcur = res.rest;
+			assert (word.len < MODEL_NAME_MAX_LEN);
+			memcpy(model_data->name, word.str, word.len);
+			model_data->name[word.len] = '\0';
+			fcur = sv_skip_to_next_ln(fcur);
+			continue;
+		}
+		if (*fcur.str == 'v') {
+			fcur.str++; fcur.len--;
+			char *endptr;
+			float x, y, z;
+			x = strtof(fcur.str, &endptr); 
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			y = strtof(fcur.str, &endptr); 
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			z = strtof(fcur.str, &endptr); 
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			temp_verts[vadd_index].x = x;
+			temp_verts[vadd_index].y = y;
+			temp_verts[vadd_index].z = z;
+			vadd_index++;
+			fcur = sv_skip_to_next_ln(fcur);
+			continue;
+		} 
+		if (*fcur.str == 'f') {
+			fcur.str++; fcur.len--;
+			char *endptr;
+			int p0, p1, p2;
+			p0 = (int)strtof(fcur.str, &endptr) - 1;
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			p1 = (int)strtof(fcur.str, &endptr) - 1; 
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			p2 = (int)strtof(fcur.str, &endptr) - 1;
+			if (fcur.str == endptr) {
+				/* parse error */
+				fprintf(ERR_LOG, "ERROR unexpected format reading Model file\n");
+				exit(1);
+			}
+			fcur.str = endptr;
+			fcur.len -= endptr - fcur.str;
+			model_data->tris[face_index].v[0] = temp_verts[p0];
+			model_data->tris[face_index].v[1] = temp_verts[p1];
+			model_data->tris[face_index].v[2] = temp_verts[p2];
+			face_index++;
+			fcur = sv_skip_to_next_ln(fcur);
+			continue;
+		} 
+		fcur = sv_skip_to_next_ln(fcur);
+	}
+	mem_pool_pop(game_memory->temp, vert_count * sizeof(Vec3));
+	return model_data;
 }
+
+Str_View
+slurp_file(Game_Memory *game_memory, FILE *f)
+{
+	Str_View sv = {0};
+	assert(f != stdin);
+	fseek(f, 0, SEEK_END);
+	sv.len = ftell(f);
+	sv.str = mem_pool_push(game_memory->temp, sv.len);
+	assert(sv.str != NULL);
+	fseek(f, 0, SEEK_SET);
+	fread(sv.str, 1, sv.len, f);
+
+	return sv;
+}
+
+Model_Data *
+plat_load_model_data(Game_Memory *game_memory, char *file_name)
+{
+	/* [TODO]: Better error handling */
+	FILE *f = fopen(file_name, "r");
+	assert(f != NULL && "Unable to open model file (plat_load_model_data)");
+	Str_View sv = slurp_file(game_memory, f);
+
+	Model_Data *model_data = deserialize_wavefront_obj_str(game_memory, sv);
+
+	/* free resources */
+	mem_pool_pop(game_memory->temp, sv.len);
+	fclose(f);
+
+	return model_data;
+#if 0
+	static const char model_dirname[] = "./test/";
+	static const size_t model_dirname_len = sizeof(model_dirname) - 1;
+	static const char model_ext[] = ".obj"; /* file format: Wavefront (.obj) */
+	static const size_t model_ext_len = sizeof(model_ext) - 1;
+	DIR *model_dir = opendir(model_dirname);
+	if (model_dir == NULL) {
+		fprintf(ERR_LOG, "Unable to open model directory: %s\n",
+				strerror(errno));
+		exit(1);
+	}
+	struct dirent *next_entry = NULL;
+	while ((next_entry = readdir(model_dir)) != NULL) {
+		size_t ne_name_len = strlen(next_entry->d_name);
+		char *ne_ext = (next_entry->d_name + ne_name_len) - 4;
+		if (next_entry->d_type == DT_REG
+				&& strncmp(ne_ext, model_ext, model_ext_len) == 0) {
+			char *ne_full_path = mem_pool_push(game_memory->temp,
+					model_dirname_len + ne_name_len + 1);
+			assert(ne_full_path != NULL);
+
+			/* concat dir name with file name */
+			memcpy(ne_full_path, model_dirname, model_dirname_len);
+			memcpy(ne_full_path + model_dirname_len, next_entry->d_name, ne_name_len);
+			ne_full_path[model_dirname_len + ne_name_len] = '\0';
+
+			FILE *f = fopen(ne_full_path, "r");
+			assert(f != NULL && "Unable to open model file (plat_load_model_data)");
+			Str_View sv = slurp_file(game_memory, f);
+
+			Model_Data *model_data = deserialize_wavefront_obj_str(game_memory, sv);
+
+			/* free resources */
+			mem_pool_pop(game_memory->temp, model_dirname_len + ne_name_len + 1);
+			mem_pool_pop(game_memory->temp, sv.len);
+			fclose(f);
+
+			return model_data;
+		}
+	}
+#endif
+}
+
+#if 0
+int
+main(void)
+{
+	Game_Memory game_memory = {
+		.block = mem_pool_new(1024 * 20),
+		.temp = mem_pool_new(1024),
+	};
+	plat_load_model_data(&game_memory);
+	return 0;
+}
+#endif
 
 int
 main(void)
@@ -242,13 +441,12 @@ main(void)
 	int game_lib_changed = 0;
 	pthread_mutex_t *m = start_watching("bin", "game.so", &game_lib_changed);
 	/* create game memory */
-	game_memory = mem_pool_new(1024 * 20);
-	game_register_malloc(game_malloc_cb);
-
-	if (game_memory == NULL) {
-		/* [TODO]: Proper error handling */
-		exit(1);
-	}
+	Game_Memory game_memory = {
+		.block = mem_pool_new(1024 * 20),
+		.temp = mem_pool_new(1024),
+	};
+	Model_Data *model_data = plat_load_model_data(&game_memory, "./test/cube.obj");
+	game_init(&game_memory, model_data);
 
 	float refreash_rate = 60.0f;
 	float frame_tt = 1.0f / refreash_rate;
@@ -295,7 +493,6 @@ main(void)
 
 	}
 	unlink_to_game(game_lib_handle);
-	mem_pool_free(game_memory);
 	SDL_PauseAudioDevice(adev, 1);
 	SDL_CloseAudioDevice(adev);
 	return 0;

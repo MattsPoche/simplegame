@@ -1,36 +1,7 @@
 #ifndef GRAPHICS_H_
 #define GRAPHICS_H_
 
-typedef struct {
-	float x;
-	float y;
-} Vec2;
-
-typedef struct {
-	Vec2 v[3];
-} Tri2;
-
-typedef struct {
-	float x;
-	float y;
-	float z;
-} Vec3;
-
-typedef struct {
-	Vec3 v[3];
-} Matrix3;
-typedef Matrix3 Tri3;
-
-typedef struct {
-	float x;
-	float y;
-	float z;
-	float w;
-} Vec4;
-
-typedef struct {
-	Vec4 v[4];
-} Matrix4;
+#include "g_types.h"
 
 static void clear_screen(uint32_t *draw_buffer, int width, int height);
 static inline Vec3 scalev3(float a, Vec3 v);
