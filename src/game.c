@@ -1,9 +1,10 @@
 #define GA_GAME_LAYER
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <string.h>
 
 #include "const.h"
 #include "game_api.h"
@@ -11,6 +12,7 @@
 #include "mem.c"
 #include "graphics.c"
 
+#define ENTITY_TAG_LEN 24
 typedef struct {
 	int upbutton_state;
 	int downbutton_state;
@@ -21,14 +23,25 @@ typedef struct {
 } Control_State;
 
 typedef struct {
-	Game_Memory *game_memory;
-	Model_Data *cube_model;
-	Control_State controls;
+	int active;
+	Vec3 pos;
+	float scalar;
+	uint32_t color;
+	Model_Data *model;
+	char tag[24];
+	int tag_len;
+} Entity;
+
+typedef struct {
+	Game_Memory *mem;
+	size_t entity_count;
+	Control_State controls; /* [TODO]: add control state and audio data to game memory */
 	float frequency;
 } Game_State;
 
-static Game_State game_state;
+#define ENTITY(index) (((Entity *)(game_state.mem->entity_pool + sizeof(Mem_Pool)))[index])
 
+static Game_State game_state;
 
 void
 ga_upbutton_down(void)
@@ -123,8 +136,30 @@ rand_range(int low, int high)
 void
 ga_init(Game_Memory *game_memory, Model_Data *model)
 {
-	game_state.game_memory = game_memory;	
-	game_state.cube_model = model;
+	game_state.mem = game_memory;	
+	Entity *cube = mem_pool_push(game_state.mem->entity_pool, sizeof(Entity));
+	/* define cube entity */
+	cube->active = 1;
+	cube->pos.x = 0.0f,
+	cube->pos.y = 0.0f,
+	cube->pos.z = 400.0f,
+	cube->scalar = 50.0f,
+	cube->color = 0xFF << GSHIFT;
+	cube->model = model;
+	memcpy(cube->tag, "Cube", 4);
+	cube->tag_len = 4;
+	Entity *cube2 = mem_pool_push(game_state.mem->entity_pool, sizeof(Entity));
+	/* define cube entity */
+	cube2->active = 1;
+	cube2->pos.x = 100.0f,
+	cube2->pos.y = 0.0f,
+	cube2->pos.z = 400.0f,
+	cube2->scalar = 50.0f,
+	cube2->color = 0xFF << RSHIFT;
+	cube2->model = model;
+	memcpy(cube2->tag, "Cube2", 5);
+	cube2->tag_len = 5;
+	game_state.entity_count += 2;
 	game_state.frequency = 110.0f;
 }
 
@@ -133,26 +168,35 @@ ga_update_and_render(uint32_t *draw_buffer, int width, int height, float elapsed
 {
 	/* [TODO]: move cube_offset into game_state */
 	if (game_state.controls.upbutton_state) {
-		cube_offset.z -= 5.0f;
+		ENTITY(0).pos.z -= 5.0f;
 	}
 	if (game_state.controls.downbutton_state) {
-		cube_offset.z += 5.0f;
+		ENTITY(0).pos.z += 5.0f;
 	}
 	if (game_state.controls.leftbutton_state) {
-		cube_offset.x += 1.0f;
+		ENTITY(0).pos.x += 1.0f;
 	}
 	if (game_state.controls.rightbutton_state) {
-		cube_offset.x -= 1.0f;
+		ENTITY(0).pos.x -= 1.0f;
 	}
 	if (game_state.controls.floatbutton_state) {
-		cube_offset.y -= 1.0f;
+		ENTITY(0).pos.y -= 1.0f;
 	}
 	if (game_state.controls.sinkbutton_state) {
-		cube_offset.y += 1.0f;
+		ENTITY(0).pos.y += 1.0f;
 	}
 	clear_screen(draw_buffer, width, height);
-	render_3d_model(draw_buffer, width, height, elapsed_time,
-			game_state.cube_model->tris, game_state.cube_model->faces);
+
+	/* render active entities */
+	for (size_t e = 0; e < game_state.entity_count; ++e) {
+		if (ENTITY(e).active) {
+			render_3d_model(draw_buffer, width, height, elapsed_time,
+					ENTITY(e).model,
+					ENTITY(e).pos,
+					ENTITY(e).scalar,
+					ENTITY(e).color);
+		}
+	}
 }
 
 void

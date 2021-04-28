@@ -1,21 +1,5 @@
 #include "graphics.h"
 
-static Vec3 cube_offset = {
-	.x = 0.0f,
-	.y = 0.0f,
-	.z = 400.0f,
-};
-static float cube_scaler = 50;
-static uint32_t color = 0;
-static uint32_t colors[6] = {
-	[0] = 0xFF << GSHIFT,
-	[1] = 0xFF << RSHIFT,
-	[2] = 0xFF << BSHIFT,
-	[3] = 0xFF << GSHIFT | 0xFF << BSHIFT,
-	[4] = 0xFF << RSHIFT | 0xFF << BSHIFT,
-	[5] = 0xFF << RSHIFT | 0xFF << GSHIFT,
-};
-
 static void
 clear_screen(uint32_t *draw_buffer, int width, int height)
 {
@@ -132,30 +116,6 @@ linear_interp_x(float x, Vec2 p0, Vec2 p1) /* for a given x position, return the
 	return (Vec2){ .x = x, .y = y };
 }
 
-#if 0
-static void
-draw_line(uint32_t *draw_buffer, const int width, const int height, Vec2 p0, Vec2 p1)
-{
-	if ((int)p0.y == (int)p1.y) {
-		if (p0.x > p1.x) swapv2(&p0, &p1);
-		for (float x = p0.x; x < p1.x; x += 1.0f) {
-			Vec2 pd = linear_interp_x(x, p0, p1);
-			if ((int)pd.y > -1 && (int)pd.y < height && (int)pd.x > -1 && (int)pd.x < width) {
-				draw_buffer[((int)pd.y * width) + (int)pd.x] = 0xFFFFFFFF; /* white */
-			}
-		}
-	} else {
-		if (p0.y > p1.y) swapv2(&p0, &p1);
-		for (float y = p0.y; y < p1.y; y += 1.0f) {
-			Vec2 pd = linear_interp_y(y, p0, p1);
-			if ((int)pd.y > -1 && (int)pd.y < height && (int)pd.x > -1 && (int)pd.x < width) {
-				draw_buffer[((int)pd.y * width) + (int)pd.x] = 0xFFFFFFFF; /* white */
-			}
-		}
-	}
-}
-#endif
-
 static void 
 wireframe_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 {
@@ -197,7 +157,7 @@ wireframe_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tr
 }
 
 static void 
-raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
+raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri, uint32_t color)
 {
 	/* find highest point */
 	Vec2 p0 = tri.v[0];
@@ -216,7 +176,7 @@ raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 		for (float x = pa.x; x < pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
 			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
-				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
+				draw_buffer[((int)pc.y * width) + (int)pc.x] = color; 
 			}
 		}
 	}
@@ -227,7 +187,7 @@ raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri)
 		for (float x = pa.x; x < pb.x; ++x) {
 			Vec2 pc = linear_interp_x(x, pa, pb);
 			if ((int)pc.y > -1 && (int)pc.y < height && (int)pc.x > -1 && (int)pc.x < width) {
-				draw_buffer[((int)pc.y * width) + (int)pc.x] = colors[color]; 
+				draw_buffer[((int)pc.y * width) + (int)pc.x] = color; 
 			}
 		}
 	}
@@ -260,8 +220,10 @@ static void
 render_3d_model(uint32_t *draw_buffer,
 				int width, int height,
 				float elapsed_time,
-				Tri3 *model,
-				size_t tri_count)
+				Model_Data *model_data,
+				Vec3 offset,
+				float scalar,
+				uint32_t color)
 {
 	static float theta = 0.0f;
 	static const Vec3 camera = {0};
@@ -283,12 +245,12 @@ render_3d_model(uint32_t *draw_buffer,
 		}
 	};
 
-	for (size_t t = 0; t < tri_count; ++t) {
+	for (size_t t = 0; t < model_data->faces; ++t) {
 		Tri3 tri_scaled = {
 			.v = {
-				[0] = scalev3(cube_scaler, model[t].v[0]),
-				[1] = scalev3(cube_scaler, model[t].v[1]),
-				[2] = scalev3(cube_scaler, model[t].v[2]),
+				[0] = scalev3(scalar, model_data->tris[t].v[0]),
+				[1] = scalev3(scalar, model_data->tris[t].v[1]),
+				[2] = scalev3(scalar, model_data->tris[t].v[2]),
 			}
 		};
 		Tri3 tri_rotatedz = {
@@ -307,9 +269,9 @@ render_3d_model(uint32_t *draw_buffer,
 		};
 		Tri3 tri_offset = {
 			.v = {
-				[0] = addv3(tri_rotatedx.v[0], cube_offset),
-				[1] = addv3(tri_rotatedx.v[1], cube_offset),
-				[2] = addv3(tri_rotatedx.v[2], cube_offset),
+				[0] = addv3(tri_rotatedx.v[0], offset),
+				[1] = addv3(tri_rotatedx.v[1], offset),
+				[2] = addv3(tri_rotatedx.v[2], offset),
 			}
 		};
 
@@ -343,10 +305,8 @@ render_3d_model(uint32_t *draw_buffer,
 			tri_projected.v[1].x *= 0.5f * (float)width; tri_projected.v[1].y *= 0.5f * (float)height;
 			tri_projected.v[2].x *= 0.5f * (float)width; tri_projected.v[2].y *= 0.5f * (float)height;
 
-			color = t / 2;
-
 			wireframe_tri2(draw_buffer, width, height, tri_projected);
-			raster_tri2(draw_buffer, width, height, tri_projected);
+			raster_tri2(draw_buffer, width, height, tri_projected, color);
 		}
 	}
 }

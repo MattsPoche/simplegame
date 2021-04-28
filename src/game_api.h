@@ -3,6 +3,7 @@
 
 #include "g_types.h"
 #include "mem.h"
+
 #ifdef GA_PLATFORM_LAYER
 
 typedef void (*ga_update_and_render)(uint32_t *draw_buffer,

@@ -14,12 +14,14 @@ static inline void swapf(float *a, float *b);
 static inline Vec2 linear_interp_y(float y, Vec2 p0, Vec2 p1);
 static inline Vec2 linear_interp_x(float x, Vec2 p0, Vec2 p1);
 static void wireframe_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri);
-static void raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri);
+static void raster_tri2(uint32_t *draw_buffer, const int width, const int height, Tri2 tri, uint32_t color);
 static Vec2 projection_map(int width, int height, Vec3 pa);
 static void render_3d_model(uint32_t *draw_buffer,
 							int width, int height,
 							float elapsed_time,
-							Tri3 *model,
-							size_t tri_count);
+							Model_Data *model_data,
+							Vec3 offset,
+							float scalar,
+							uint32_t color);
 
 #endif /* GRAPHICS_H_ */

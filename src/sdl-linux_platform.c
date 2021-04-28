@@ -163,7 +163,8 @@ plat_msleep(int64_t msec)
 static void *
 link_to_game(void)
 {
-	void *handle = dlopen(game_lib_name, RTLD_NOW|RTLD_LOCAL); /* [TODO]: use flag to keep lib data loaded */
+	/* [TODO]: use flag to keep lib data loaded */
+	void *handle = dlopen(game_lib_name, RTLD_NOW|RTLD_LOCAL);
 	if (handle == NULL) {
 		fprintf(ERR_LOG, "[ERROR] problem dynamically loading game: %s\n",
 				dlerror());
@@ -226,7 +227,7 @@ unlink_to_game(void *handle)
 }
 
 Model_Data *
-deserialize_wavefront_obj_str(Game_Memory *game_memory, Str_View file)
+deserialize_wavefront_obj_str(Mem_Pool *model_pool, Str_View file)
 {
 	Model_Data *model_data = NULL;
 	Vec3 *temp_verts = NULL;
@@ -243,11 +244,11 @@ deserialize_wavefront_obj_str(Game_Memory *game_memory, Str_View file)
 		}
 		fcur = sv_skip_to_next_ln(fcur);
 	}
-	model_data = mem_pool_push(game_memory->block,
+	model_data = mem_pool_push(model_pool,
 			sizeof(Model_Data) + (face_count * sizeof(Tri3)));
 	assert(model_data != NULL);
 	model_data->faces = face_count;
-	temp_verts = mem_pool_push(game_memory->temp, vert_count * sizeof(Vec3));
+	temp_verts = malloc(vert_count * sizeof(Vec3));
 	fcur = file;
 	size_t vadd_index = 0;
 	size_t face_index = 0;
@@ -336,18 +337,18 @@ deserialize_wavefront_obj_str(Game_Memory *game_memory, Str_View file)
 		} 
 		fcur = sv_skip_to_next_ln(fcur);
 	}
-	mem_pool_pop(game_memory->temp, vert_count * sizeof(Vec3));
+	free(temp_verts);
 	return model_data;
 }
 
 Str_View
-slurp_file(Game_Memory *game_memory, FILE *f)
+slurp_file(FILE *f)
 {
 	Str_View sv = {0};
 	assert(f != stdin);
 	fseek(f, 0, SEEK_END);
 	sv.len = ftell(f);
-	sv.str = mem_pool_push(game_memory->temp, sv.len);
+	sv.str = malloc(sv.len);
 	assert(sv.str != NULL);
 	fseek(f, 0, SEEK_SET);
 	fread(sv.str, 1, sv.len, f);
@@ -356,75 +357,21 @@ slurp_file(Game_Memory *game_memory, FILE *f)
 }
 
 Model_Data *
-plat_load_model_data(Game_Memory *game_memory, char *file_name)
+plat_load_model_data(Mem_Pool *model_pool, char *file_name)
 {
 	/* [TODO]: Better error handling */
 	FILE *f = fopen(file_name, "r");
 	assert(f != NULL && "Unable to open model file (plat_load_model_data)");
-	Str_View sv = slurp_file(game_memory, f);
+	Str_View sv = slurp_file(f);
 
-	Model_Data *model_data = deserialize_wavefront_obj_str(game_memory, sv);
+	Model_Data *model_data = deserialize_wavefront_obj_str(model_pool, sv);
 
 	/* free resources */
-	mem_pool_pop(game_memory->temp, sv.len);
+	free(sv.str);
 	fclose(f);
 
 	return model_data;
-#if 0
-	static const char model_dirname[] = "./test/";
-	static const size_t model_dirname_len = sizeof(model_dirname) - 1;
-	static const char model_ext[] = ".obj"; /* file format: Wavefront (.obj) */
-	static const size_t model_ext_len = sizeof(model_ext) - 1;
-	DIR *model_dir = opendir(model_dirname);
-	if (model_dir == NULL) {
-		fprintf(ERR_LOG, "Unable to open model directory: %s\n",
-				strerror(errno));
-		exit(1);
-	}
-	struct dirent *next_entry = NULL;
-	while ((next_entry = readdir(model_dir)) != NULL) {
-		size_t ne_name_len = strlen(next_entry->d_name);
-		char *ne_ext = (next_entry->d_name + ne_name_len) - 4;
-		if (next_entry->d_type == DT_REG
-				&& strncmp(ne_ext, model_ext, model_ext_len) == 0) {
-			char *ne_full_path = mem_pool_push(game_memory->temp,
-					model_dirname_len + ne_name_len + 1);
-			assert(ne_full_path != NULL);
-
-			/* concat dir name with file name */
-			memcpy(ne_full_path, model_dirname, model_dirname_len);
-			memcpy(ne_full_path + model_dirname_len, next_entry->d_name, ne_name_len);
-			ne_full_path[model_dirname_len + ne_name_len] = '\0';
-
-			FILE *f = fopen(ne_full_path, "r");
-			assert(f != NULL && "Unable to open model file (plat_load_model_data)");
-			Str_View sv = slurp_file(game_memory, f);
-
-			Model_Data *model_data = deserialize_wavefront_obj_str(game_memory, sv);
-
-			/* free resources */
-			mem_pool_pop(game_memory->temp, model_dirname_len + ne_name_len + 1);
-			mem_pool_pop(game_memory->temp, sv.len);
-			fclose(f);
-
-			return model_data;
-		}
-	}
-#endif
 }
-
-#if 0
-int
-main(void)
-{
-	Game_Memory game_memory = {
-		.block = mem_pool_new(1024 * 20),
-		.temp = mem_pool_new(1024),
-	};
-	plat_load_model_data(&game_memory);
-	return 0;
-}
-#endif
 
 int
 main(void)
@@ -442,10 +389,12 @@ main(void)
 	pthread_mutex_t *m = start_watching("bin", "game.so", &game_lib_changed);
 	/* create game memory */
 	Game_Memory game_memory = {
-		.block = mem_pool_new(1024 * 20),
-		.temp = mem_pool_new(1024),
+		.model_pool = mem_pool_new(1024 * 20),
+		.entity_pool = mem_pool_new(1024 * 4),
+		.temp = mem_pool_new(1024 * 4),
 	};
-	Model_Data *model_data = plat_load_model_data(&game_memory, "./test/cube.obj");
+	Model_Data *model_data = plat_load_model_data(game_memory.model_pool, "./test/cube.obj");
+	/* Set initial game state */
 	game_init(&game_memory, model_data);
 
 	float refreash_rate = 60.0f;
@@ -460,7 +409,8 @@ main(void)
 			pause_audio = 0;
 			unlink_to_game(game_lib_handle);
 			game_lib_handle = link_to_game();
-			plat_pause_audio();
+			mem_pool_pop_all(game_memory.entity_pool);
+			game_init(&game_memory, model_data);
 			game_lib_changed = 0;
 		}
 		pthread_mutex_unlock(m);
