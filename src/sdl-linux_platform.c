@@ -253,18 +253,6 @@ deserialize_wavefront_obj_str(Mem_Pool *model_pool, Str_View file)
 	size_t vadd_index = 0;
 	size_t face_index = 0;
 	while (fcur.len > 0 && face_index < face_count) {
-		if (*fcur.str == 'o') {
-			fcur.str++; fcur.len--;
-			fcur = sv_skip_whitespace(fcur);
-			Str_Str res = sv_word(fcur);
-			Str_View word = res.sv;
-			fcur = res.rest;
-			assert (word.len < MODEL_NAME_MAX_LEN);
-			memcpy(model_data->name, word.str, word.len);
-			model_data->name[word.len] = '\0';
-			fcur = sv_skip_to_next_ln(fcur);
-			continue;
-		}
 		if (*fcur.str == 'v') {
 			fcur.str++; fcur.len--;
 			char *endptr;
@@ -389,9 +377,11 @@ main(void)
 	pthread_mutex_t *m = start_watching("bin", "game.so", &game_lib_changed);
 	/* create game memory */
 	Game_Memory game_memory = {
-		.model_pool = mem_pool_new(1024 * 20),
-		.entity_pool = mem_pool_new(1024 * 4),
-		.temp = mem_pool_new(1024 * 4),
+		.model_pool   = mem_pool_new(1024 * 20),
+		.entity_pool  = mem_pool_new(1024 * 4),
+		.control_pool = mem_pool_new(sizeof(Control_State)),
+		.audio_pool   = mem_pool_new(sizeof(Audio_State)),
+		.temp         = mem_pool_new(1024 * 4),
 	};
 	Model_Data *model_data = plat_load_model_data(game_memory.model_pool, "./test/cube.obj");
 	/* Set initial game state */

@@ -34,7 +34,6 @@ typedef struct {
 
 #define MODEL_NAME_MAX_LEN 24
 typedef struct {
-	char name[MODEL_NAME_MAX_LEN]; /* name of model */
 	size_t faces;	 			   /* count of faces */
 	Tri3 tris[];      			   /* array of tris */
 } Model_Data;

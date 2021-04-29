@@ -1,8 +1,10 @@
 #ifndef GAME_API_H_
 #define GAME_API_H_
 
+/* [NOTE]: order of includes matters here */
 #include "g_types.h"
 #include "mem.h"
+#include "ga_types.h"
 
 #ifdef GA_PLATFORM_LAYER
 

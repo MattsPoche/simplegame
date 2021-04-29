@@ -12,6 +12,8 @@ typedef struct {
 typedef struct {
 	Mem_Pool *model_pool;
 	Mem_Pool *entity_pool;
+	Mem_Pool *control_pool;
+	Mem_Pool *audio_pool;
 	Mem_Pool *temp;
 } Game_Memory;
 
