@@ -345,7 +345,7 @@ slurp_file(FILE *f)
 }
 
 Model_Data *
-plat_load_model_data(Mem_Pool *model_pool, char *file_name)
+plat_load_model_data(Mem_Pool *model_pool, const char *file_name)
 {
 	/* [TODO]: Better error handling */
 	FILE *f = fopen(file_name, "r");
@@ -378,14 +378,19 @@ main(void)
 	/* create game memory */
 	Game_Memory game_memory = {
 		.model_pool   = mem_pool_new(1024 * 20),
+		.model_lookup = mem_pool_new(1024),
 		.entity_pool  = mem_pool_new(1024 * 4),
 		.control_pool = mem_pool_new(sizeof(Control_State)),
 		.audio_pool   = mem_pool_new(sizeof(Audio_State)),
 		.temp         = mem_pool_new(1024 * 4),
 	};
-	Model_Data *model_data = plat_load_model_data(game_memory.model_pool, "./test/cube.obj");
+	/* load model data */
+	for (size_t i = 0; model_files[i] != NULL; ++i) {
+		Model_Data **model = mem_pool_push(game_memory.model_lookup, sizeof(Model_Data *));
+		*model = plat_load_model_data(game_memory.model_pool, model_files[i]);
+	}
 	/* Set initial game state */
-	game_init(&game_memory, model_data);
+	game_init(&game_memory);
 
 	float refreash_rate = 60.0f;
 	float frame_tt = 1.0f / refreash_rate;
@@ -400,7 +405,7 @@ main(void)
 			unlink_to_game(game_lib_handle);
 			game_lib_handle = link_to_game();
 			mem_pool_pop_all(game_memory.entity_pool);
-			game_init(&game_memory, model_data);
+			game_init(&game_memory);
 			game_lib_changed = 0;
 		}
 		pthread_mutex_unlock(m);

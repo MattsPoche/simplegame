@@ -2,10 +2,11 @@
 #define GAME_API_H_
 
 /* [NOTE]: order of includes matters here */
-#include "g_types.h"
+#include "g_types.h"  /* graphics types */
 #include "mem.h"
-#include "ga_types.h"
+#include "ga_types.h" /* game related types */
 
+#define MODEL_COUNT 2
 #ifdef GA_PLATFORM_LAYER
 
 typedef void (*ga_update_and_render)(uint32_t *draw_buffer,
@@ -13,18 +14,23 @@ typedef void (*ga_update_and_render)(uint32_t *draw_buffer,
 									 float elapsed_time);
 typedef void (*ga_update_sound)(void *audio_buffer, int frames);
 typedef void (*ga_controller_input)(void);
-typedef void (*ga_init)(Game_Memory *game_memory, Model_Data *model);
+typedef void (*ga_init)(Game_Memory *game_memory);
 
 /* GLOBAL function pointers required for runtime-linking */
 static ga_update_and_render game_update_and_render = NULL;
 static ga_update_sound game_update_sound = NULL;
 static ga_init game_init = NULL;
 
+static const char *model_files[MODEL_COUNT] = {
+	[0] = "./test/cube.obj",
+	[1] = NULL,
+};
+
 #endif /* PLATFORM_LAYER */
 
 #ifdef GA_GAME_LAYER
 
-void ga_init(Game_Memory *game_memory, Model_Data *model);
+void ga_init(Game_Memory *game_memory);
 void ga_update_and_render(uint32_t *draw_buffer, int width, int height, float elapsed_time);
 void ga_update_sound(void *audio_buffer, int frames);
 void ga_upbutton_down(void);

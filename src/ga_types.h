@@ -25,4 +25,12 @@ typedef struct {
 	int tag_len;
 } Entity;
 
+typedef struct {
+	Vec3 pos;
+	float scalar;
+	uint32_t color;
+	size_t m;		/* index of model in model array */
+	char *tag;
+} Entity_Def;
+
 #endif /* GA_TYPES_H_ */
